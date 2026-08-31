@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>夏休みの自由研究：3Dプリンタでクッキーの型を作る</title>
+  <style>
+    :root {
+      --paper: #f4efdf;
+      --paper-deep: #e9dfc9;
+      --ink: #222629;
+      --muted: #6a6d66;
+      --tomato: #e65b43;
+      --blue: #377a88;
+      --yellow: #e4b84d;
+      --green: #78955a;
+      --brown: #8b5e3c;
+      --shadow: 0 10px 0 rgba(36, 35, 30, .08), 0 18px 35px rgba(36, 35, 30, .08);
+      --sans: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+      --display: "Trebuchet MS", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: #d8d0bd; color: var(--ink); }
+    body { font-family: var(--sans); overflow: hidden; }
+    button { font: inherit; }
+
+    .deck { width: 100vw; height: 100vh; position: relative; }
+    .slide {
+      display: none;
+      width: 100%; height: 100%; min-height: 560px;
+      position: relative; overflow: hidden; padding: 5.2vh 6vw 6vh;
+      background: var(--paper);
+      isolation: isolate;
+    }
+    .slide.active { display: block; }
+    .slide::before {
+      content: ""; position: absolute; z-index: -1; left: 0; top: 0; width: 100%; height: 16px;
+      background: var(--tomato); opacity: .9;
+    }
+    .slide::after {
+      content: ""; position: absolute; z-index: -1; right: -90px; bottom: -110px; width: 300px; height: 240px;
+      background: var(--yellow); transform: rotate(-13deg); opacity: .2;
+    }
+    .slide[data-tone="blue"]::before { background: var(--blue); }
+    .slide[data-tone="green"]::before { background: var(--green); }
+    .slide[data-tone="yellow"]::before { background: var(--yellow); }
+
+    .kicker, .label, .eyebrow {
+      display: inline-block; font-size: clamp(11px, 1.15vw, 16px); font-weight: 800;
+      letter-spacing: .08em; color: var(--tomato); text-transform: uppercase;
+    }
+    .eyebrow { color: var(--blue); }
+    h1, h2, h3, p { margin: 0; }
+    h1, h2, h3 { font-family: var(--display); letter-spacing: 0; line-height: 1.08; }
+    h1 { font-size: clamp(44px, 7.2vw, 106px); max-width: 910px; }
+    h2 { font-size: clamp(34px, 5.1vw, 75px); max-width: 940px; }
+    h3 { font-size: clamp(20px, 2vw, 30px); }
+    p, li { font-size: clamp(15px, 1.55vw, 23px); line-height: 1.5; }
+    .small { font-size: clamp(12px, 1.05vw, 16px); color: var(--muted); line-height: 1.45; }
+    .muted { color: var(--muted); }
+    .serif { font-family: Georgia, "Times New Roman", serif; }
+
+    .stamp {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 9px 14px; border: 2px solid currentColor; color: var(--tomato);
+      font-size: clamp(11px, 1.05vw, 15px); font-weight: 900; letter-spacing: .08em;
+      transform: rotate(-3deg); background: rgba(255,255,255,.25);
+    }
+    .rule { width: 100%; height: 2px; background: var(--ink); opacity: .16; margin: 18px 0; }
+    .tape { position: absolute; width: 110px; height: 25px; background: rgba(217, 190, 126, .7); transform: rotate(-5deg); box-shadow: 0 2px 6px rgba(0,0,0,.08); }
+
+    .cover { padding-top: 9vh; }
+    .cover .copy { width: 57%; position: relative; z-index: 2; }
+    .cover h1 { margin-top: 18px; }
+    .cover .sub { margin-top: 24px; max-width: 660px; font-size: clamp(17px, 2vw, 29px); }
+    .cover .byline { margin-top: 34px; display: flex; align-items: center; gap: 18px; }
+    .avatar { width: 62px; height: 62px; border-radius: 50%; object-fit: cover; border: 4px solid var(--ink); background: var(--paper-deep); }
+    .byline strong { display: block; font-size: clamp(15px, 1.35vw, 20px); }
+    .byline span { font-size: clamp(12px, 1.1vw, 16px); color: var(--muted); }
+    .cover-art { position: absolute; right: 7vw; top: 15%; width: 37vw; height: 65vh; min-width: 350px; }
+    .cover-art .sun { position: absolute; right: 4%; top: 1%; width: 220px; height: 220px; border: 13px solid var(--yellow); border-radius: 50%; opacity: .8; }
+    .cover-art .printer { position: absolute; right: 12%; bottom: 12%; width: 74%; height: 48%; border: 5px solid var(--ink); background: #d7d9d2; box-shadow: var(--shadow); }
+    .printer::before { content: ""; position: absolute; left: 8%; right: 8%; top: 12%; height: 64%; border: 4px solid var(--ink); background: #eef0eb; }
+    .printer::after { content: ""; position: absolute; left: 43%; top: 20%; width: 18%; height: 8%; background: var(--tomato); box-shadow: 0 72px 0 var(--yellow), -68px 130px 0 var(--blue); }
+    .printer-tag { position: absolute; left: 1%; top: 45%; padding: 12px 16px; background: var(--tomato); color: white; transform: rotate(-8deg); font-weight: 900; box-shadow: 5px 5px 0 var(--ink); }
+    .cookie-orbit { position: absolute; left: 0; bottom: 14%; width: 155px; height: 155px; border: 7px solid var(--brown); border-radius: 50%; background: #d7a469; box-shadow: inset 0 0 0 12px #f1c98b, 7px 9px 0 var(--ink); }
+    .cookie-orbit::before, .cookie-orbit::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--brown); }
+    .cookie-orbit::before { left: 36px; top: 38px; box-shadow: 58px 20px 0 var(--brown), 34px 62px 0 var(--brown); }
+    .cookie-orbit::after { left: 86px; top: 90px; box-shadow: -50px 11px 0 var(--brown); }
+
+    .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+    .header .right-note { max-width: 280px; text-align: right; color: var(--muted); font-size: clamp(12px, 1.15vw, 17px); line-height: 1.45; }
+    .body { margin-top: 4.5vh; }
+    .body.tight { margin-top: 2.8vh; }
+
+    .quote { margin-top: 6vh; width: min(780px, 80%); position: relative; }
+    .quote::before { content: "“"; position: absolute; left: -42px; top: -55px; font: 150px Georgia, serif; color: var(--yellow); z-index: -1; }
+    .quote strong { display: block; font-size: clamp(33px, 5vw, 76px); line-height: 1.14; }
+    .quote em { display: block; margin-top: 20px; color: var(--tomato); font-style: normal; font-weight: 900; font-size: clamp(15px, 1.45vw, 21px); }
+
+    .three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 38px; align-items: center; }
+    .note { border: 2px solid var(--ink); background: rgba(255,255,255,.26); padding: 22px; min-height: 155px; box-shadow: 5px 6px 0 rgba(34,38,41,.12); }
+    .note h3 { margin-bottom: 12px; }
+    .note p { font-size: clamp(14px, 1.25vw, 18px); }
+    .note:nth-child(2) { transform: translateY(15px) rotate(1.5deg); background: #f6e8b4; }
+    .note:nth-child(3) { transform: rotate(-1.2deg); background: #dcebee; }
+
+    .specimen { position: relative; border: 4px solid var(--ink); background: #e0e2dc; min-height: 360px; box-shadow: var(--shadow); padding: 28px; }
+    .specimen img { width: 100%; height: 300px; object-fit: contain; display: block; mix-blend-mode: multiply; }
+    .specimen figcaption { position: absolute; bottom: -16px; left: 26px; padding: 8px 12px; background: var(--yellow); font-size: 13px; font-weight: 900; transform: rotate(-2deg); }
+    .photo-slot { border: 3px dashed var(--blue); background: rgba(55,122,136,.08); min-height: 170px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 22px; color: var(--blue); font-weight: 900; }
+    .photo-slot strong { display: block; font-size: clamp(18px, 1.8vw, 26px); }
+    .photo-slot span { display: block; margin-top: 8px; font-size: 13px; font-weight: 600; }
+    .workflow-shot { width: 100%; height: 112px; object-fit: cover; object-position: center; display: block; margin-top: 10px; border: 2px solid var(--ink); }
+
+    .big-number { font-family: var(--display); font-weight: 900; font-size: clamp(58px, 9vw, 130px); line-height: .8; color: var(--tomato); }
+    .material { border-left: 10px solid var(--green); padding: 14px 0 14px 24px; }
+    .material h3 { font-size: clamp(25px, 3vw, 46px); }
+    .material p { margin-top: 10px; max-width: 620px; }
+    .warning { margin-top: 22px; padding: 14px 16px; border: 2px solid var(--tomato); color: #a13b2c; font-size: clamp(12px, 1.05vw, 15px); line-height: 1.45; background: #f7e1d8; }
+
+    .cookie-row { display: flex; flex-wrap: wrap; gap: 34px; align-items: flex-end; margin-top: 36px; }
+    .cookie { position: relative; width: 180px; height: 180px; border-radius: 50%; background: #d7a469; border: 7px solid var(--brown); box-shadow: inset 0 0 0 12px #efc486, 6px 8px 0 var(--ink); }
+    .cookie::before, .cookie::after { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; background: var(--brown); }
+    .cookie::before { left: 35px; top: 38px; box-shadow: 60px 20px 0 var(--brown), 34px 78px 0 var(--brown); }
+    .cookie::after { left: 96px; top: 106px; box-shadow: -62px 9px 0 var(--brown); }
+    .cookie .cut { position: absolute; inset: 27px; border: 5px solid #8d5f3a; border-radius: 20px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 21px; letter-spacing: .04em; color: #8d5f3a; }
+    .cookie.gopher .cut { border-radius: 48% 48% 42% 42%; border-width: 6px; }
+    .cookie.gopher .cut::before { content: "• ᴗ •"; transform: translateY(3px); font-size: 28px; }
+    .cookie-label { text-align: center; margin-top: 16px; font-weight: 900; color: var(--brown); }
+
+    .steps { margin-top: 4.2vh; display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: stretch; }
+    .step { position: relative; min-height: 245px; padding: 16px; border-top: 7px solid var(--blue); background: rgba(255,255,255,.35); }
+    .step::after { display: none; }
+    .step .num { font-family: var(--display); color: var(--tomato); font-size: 38px; font-weight: 900; }
+    .step h3 { font-size: clamp(16px, 1.55vw, 22px); margin: 9px 0; }
+    .step p { font-size: clamp(12px, 1.1vw, 16px); color: var(--muted); }
+    .sketch { height: 88px; border: 2px solid var(--ink); margin-top: 15px; background: #fbf8ef; position: relative; overflow: hidden; }
+    .sketch::before, .sketch::after { content: ""; position: absolute; background: var(--ink); opacity: .75; }
+    .sketch::before { width: 65px; height: 2px; left: 19px; top: 30px; transform: rotate(-18deg); box-shadow: 17px 21px 0 var(--ink); }
+    .sketch::after { width: 2px; height: 57px; left: 65px; top: 16px; transform: rotate(17deg); }
+    .step:nth-child(2) .sketch::before { width: 74px; left: 17px; top: 41px; transform: rotate(0); box-shadow: none; }
+    .step:nth-child(3) .sketch::before { width: 45px; height: 45px; left: 35px; top: 21px; border: 3px solid var(--tomato); background: transparent; transform: rotate(45deg); box-shadow: none; }
+    .step:nth-child(3) .sketch::after { left: 91px; top: 27px; height: 32px; }
+    .step:nth-child(4) .sketch::before { width: 84px; height: 42px; left: 25px; top: 27px; background: var(--blue); transform: skewY(-18deg); box-shadow: none; }
+    .step:nth-child(4) .sketch::after { width: 62px; height: 2px; left: 34px; top: 48px; background: white; transform: rotate(-18deg); }
+    .step:nth-child(5) .sketch::before { width: 52px; height: 52px; left: 29px; top: 17px; border: 3px solid var(--tomato); border-radius: 50%; background: transparent; box-shadow: none; }
+    .step:nth-child(5) .sketch::after { width: 56px; height: 4px; left: 27px; top: 42px; background: var(--yellow); transform: rotate(45deg); }
+    .step-image { width: 100%; height: 132px; object-fit: contain; object-position: center; border: 2px solid var(--ink); background: #fbf8ef; display: block; margin-top: 13px; }
+
+    .stencil-demo { border: 7px solid var(--ink); background: #f7f5eb; min-height: 270px; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: 12px 12px 0 var(--blue); }
+    .stencil-demo img { width: 100%; height: 195px; object-fit: cover; object-position: center; display: block; border-bottom: 2px solid var(--ink); }
+    .stencil-demo .word { font-family: var(--display); font-size: clamp(42px, 6.3vw, 92px); font-weight: 900; letter-spacing: .06em; color: var(--ink); border: 4px solid var(--ink); padding: 12px 24px; }
+    .stencil-demo .cutline { margin-top: 18px; width: 75%; border-top: 3px dashed var(--tomato); text-align: center; padding-top: 10px; font-weight: 900; color: var(--tomato); }
+    .stencil-list { display: grid; gap: 18px; }
+    .stencil-list div { display: grid; grid-template-columns: 48px 1fr; gap: 16px; align-items: center; }
+    .stencil-list b { width: 42px; height: 42px; display: grid; place-items: center; border: 2px solid var(--ink); border-radius: 50%; background: var(--yellow); font-family: var(--display); font-size: 22px; }
+    .stencil-list p { font-size: clamp(15px, 1.35vw, 20px); }
+
+    .recipe { display: grid; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; margin-top: 5vh; }
+    .recipe-list { display: grid; gap: 18px; }
+    .recipe-item { display: grid; grid-template-columns: 54px 1fr; gap: 18px; align-items: center; }
+    .recipe-item .bubble { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; background: var(--tomato); color: white; font-family: var(--display); font-size: 24px; font-weight: 900; }
+    .recipe-item strong { display: block; font-size: clamp(18px, 1.7vw, 26px); }
+    .recipe-item span { color: var(--muted); font-size: clamp(12px, 1.1vw, 16px); }
+    .bake-sheet { position: relative; min-height: 300px; border: 4px solid var(--ink); background: #cad6d1; box-shadow: var(--shadow); padding: 26px; }
+    .bake-sheet img { width: 100%; height: 245px; object-fit: cover; object-position: center; display: block; }
+    .bake-sheet::before { content: "焼く！"; position: absolute; right: 20px; top: 14px; color: var(--tomato); font-size: 25px; font-weight: 900; transform: rotate(8deg); }
+    .mini-cookie { position: absolute; width: 96px; height: 96px; border-radius: 50%; border: 5px solid var(--brown); background: #d7a469; box-shadow: inset 0 0 0 8px #efc486; }
+    .mini-cookie::before { content: ""; position: absolute; width: 10px; height: 10px; border-radius: 50%; background: var(--brown); left: 22px; top: 25px; box-shadow: 36px 16px 0 var(--brown), 20px 49px 0 var(--brown); }
+    .mini-cookie.one { left: 29px; bottom: 32px; transform: rotate(-8deg); }
+    .mini-cookie.two { left: 136px; bottom: 55px; transform: rotate(9deg); }
+    .mini-cookie.three { left: 245px; bottom: 28px; transform: rotate(-3deg); }
+    .tray-line { position: absolute; left: 22px; right: 22px; bottom: 18px; border-bottom: 2px solid var(--ink); opacity: .2; }
+
+    .gallery { margin-top: 4vh; display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 22px; align-items: start; }
+    .gallery .shot { min-height: 275px; border: 3px solid var(--ink); background: #fcf8eb; padding: 14px; transform: rotate(-1.5deg); box-shadow: 7px 9px 0 rgba(34,38,41,.11); }
+    .gallery .shot:nth-child(2) { transform: rotate(2deg) translateY(16px); }
+    .gallery .shot:nth-child(3) { transform: rotate(-3deg); }
+    .shot .photo-slot { min-height: 210px; border: 2px dashed var(--green); }
+    .shot .caption { margin-top: 12px; font-weight: 900; font-size: clamp(15px, 1.3vw, 19px); }
+
+    .failure { display: grid; grid-template-columns: 1fr 1fr; gap: 54px; align-items: center; margin-top: 5vh; }
+    .bad-cookie { position: relative; width: min(350px, 85%); aspect-ratio: 1; border-radius: 45% 55% 44% 56%; background: #4d3428; border: 8px solid #32241f; transform: rotate(-11deg); box-shadow: 12px 13px 0 var(--ink); margin: 10px auto; }
+    .bad-cookie::before { content: "• ︵ •"; position: absolute; left: 18%; top: 28%; color: #d6b38b; font-size: 52px; transform: rotate(7deg); }
+    .bad-cookie::after { content: "COCOA OVERFLOW"; position: absolute; left: 15%; bottom: 19%; color: #d6b38b; font-size: 14px; font-weight: 900; transform: rotate(8deg); }
+    .failure-copy { position: relative; }
+    .failure-copy .scribble { display: inline-block; margin-bottom: 18px; padding: 8px 13px; border: 3px solid var(--tomato); color: var(--tomato); font-weight: 900; transform: rotate(4deg); }
+    .failure-copy strong { display: block; font-size: clamp(29px, 4vw, 60px); line-height: 1.14; }
+    .failure-copy p { margin-top: 18px; color: var(--muted); }
+    .failure-photo { min-height: 310px; border: 4px solid var(--ink); background: #f1d1ab; box-shadow: var(--shadow); padding: 10px; transform: rotate(-2deg); }
+    .failure-photo img { width: 100%; height: 285px; object-fit: cover; object-position: center; display: block; }
+
+    .reflection { margin-top: 4vh; display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+    .measurement { position: relative; min-height: 290px; border: 3px solid var(--ink); background: #fffbed; padding: 20px; }
+    .measurement .cookie-edge { position: absolute; left: 15%; top: 24%; width: 250px; height: 120px; border: 12px solid var(--brown); border-bottom: 0; border-radius: 150px 150px 0 0; transform: rotate(-7deg); }
+    .measurement .wing { position: absolute; left: 16%; top: 29%; width: 90px; height: 52px; border-top: 14px solid var(--tomato); transform: rotate(25deg); }
+    .measurement .measure-line { position: absolute; left: 14%; right: 12%; bottom: 54px; border-bottom: 3px solid var(--blue); }
+    .measurement .measure-line::before { content: "縁 ひろすぎ"; position: absolute; right: 6%; bottom: 9px; color: var(--blue); font-weight: 900; font-size: 15px; }
+    .reflection-copy { padding-left: 5px; }
+    .reflection-copy h3 { font-size: clamp(26px, 3.4vw, 52px); color: var(--tomato); }
+    .reflection-copy p { margin-top: 20px; max-width: 510px; }
+
+    .summary { margin-top: 6vh; max-width: 850px; }
+    .summary li { margin: 18px 0; list-style: none; position: relative; padding-left: 33px; }
+    .summary li::before { content: "✓"; position: absolute; left: 0; color: var(--green); font-size: 24px; font-weight: 900; }
+    .cta { display: inline-block; margin-top: 34px; padding: 16px 24px; background: var(--tomato); color: white; font-size: clamp(22px, 2.2vw, 32px); font-weight: 900; box-shadow: 8px 8px 0 var(--ink); transform: rotate(-2deg); }
+    .footer-note { position: absolute; left: 6vw; bottom: 24px; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+
+    .controls { position: fixed; z-index: 20; right: 22px; bottom: 20px; display: flex; align-items: center; gap: 9px; }
+    .controls button { width: 38px; height: 38px; border: 2px solid var(--ink); border-radius: 50%; background: var(--paper); color: var(--ink); cursor: pointer; font-size: 19px; line-height: 1; box-shadow: 3px 3px 0 rgba(34,38,41,.15); }
+    .controls button:hover { background: var(--yellow); }
+    .counter { min-width: 56px; text-align: center; font-size: 12px; font-weight: 900; color: var(--muted); }
+    .progress { position: fixed; left: 0; bottom: 0; z-index: 21; height: 5px; background: var(--tomato); width: 0; transition: width .25s ease; }
+
+    @media (max-width: 850px) {
+      body { overflow: auto; }
+      .deck { height: auto; }
+      .slide { min-height: 100vh; height: auto; padding: 48px 7vw 72px; }
+      .cover { padding-top: 70px; }
+      .cover .copy { width: 100%; }
+      .cover-art { position: relative; right: auto; top: auto; width: 100%; height: 290px; min-width: 0; margin-top: 24px; }
+      .cover-art .sun { width: 140px; height: 140px; right: 3%; }
+      .cover-art .printer { right: 8%; width: 70%; height: 58%; bottom: 7%; }
+      .cookie-orbit { width: 110px; height: 110px; left: 2%; bottom: 8%; }
+      .cookie-orbit::before { transform: scale(.72); transform-origin: 0 0; }
+      .three-col, .two-col, .recipe, .failure, .reflection { grid-template-columns: 1fr; gap: 22px; }
+      .steps { grid-template-columns: 1fr; gap: 12px; }
+      .step { min-height: 120px; padding-left: 85px; }
+      .step::after { content: "↓"; right: auto; left: 50%; top: auto; bottom: -20px; }
+      .step:last-child::after { display: none; }
+      .step .num { position: absolute; left: 16px; top: 20px; }
+      .sketch { display: none; }
+      .gallery { grid-template-columns: 1fr; gap: 16px; }
+      .gallery .shot, .gallery .shot:nth-child(2), .gallery .shot:nth-child(3) { transform: none; }
+      .quote { width: 86%; }
+      .header .right-note { max-width: 150px; }
+    }
+
+    @media print {
+      @page { size: 16in 9in; margin: 0; }
+      body { overflow: visible; background: white; }
+      .deck { width: auto; height: auto; }
+      .slide, .slide.active { display: block; width: 100vw; height: 100vh; page-break-after: always; }
+      .controls, .progress { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-live="polite">
+    <section class="slide active cover" data-tone="yellow">
+      <div class="copy">
+        <span class="stamp">夏休みの自由研究 / 老人発表会</span>
+        <h1>3Dプリンタで<br><span style="color:var(--tomato)">クッキーの型</span>を作る</h1>
+        <p class="sub">つくりたいものを、つくれる。<br>そして、食べられる。</p>
+        <div class="byline">
+          <img class="avatar" src="assets/tsuzu-avatar.jpg" alt="Tsuzuのアイコン">
+          <div><strong>Tsuzu / TSUCHIYA Tsuzuki</strong><span>ex-MIS.W 53代 · Web班班長 / SysAd · @tsuzu · @tsuzu_misw</span></div>
+        </div>
+      </div>
+      <div class="cover-art" aria-hidden="true">
+        <div class="sun"></div><div class="cookie-orbit"></div>
+        <div class="printer"><span class="printer-tag">Bambu Lab?</span></div>
+      </div>
+      <div class="footer-note">Kubernetesで生計を立てている Software Engineer の、ある夏の工作記録</div>
+    </section>
+
+    <section class="slide" data-tone="blue">
+      <div class="header"><div><span class="eyebrow">01 / きっかけ</span><h2>最近、Accept Cookies<br>増えましたよね。</h2></div><div class="right-note">Webを見ていると、<br>まずボタンを押す時代。</div></div>
+      <div class="quote"><strong>Accept しないと<br>食べられない Cookie。</strong><em>この言葉を、本物にしてみたい。</em></div>
+      <div class="tape" style="right:16%;top:54%;"></div>
+    </section>
+
+    <section class="slide" data-tone="yellow">
+      <div class="header"><div><span class="kicker">02 / 仮説</span><h2>3Dプリンタなら、<br>たぶん型も作れる。</h2></div><div class="right-note">自由研究なので<br>まずは仮説から。</div></div>
+      <div class="body">
+        <div class="three-col">
+          <article class="note"><div class="big-number">01</div><h3>欲しい形を描く</h3><p>既製品を探すより、欲しいものを欲しい形で。</p></article>
+          <article class="note"><div class="big-number">02</div><h3>データにする</h3><p>イラストからSVG、SVGから立体へ。</p></article>
+          <article class="note"><div class="big-number">03</div><h3>印刷して試す</h3><p>失敗しても、直してもう一度作れる。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="blue">
+      <div class="header"><div><span class="eyebrow">03 / 3Dプリンタ</span><h2>まず、プリンタを<br>買いました。</h2></div><div class="right-note">今回の観察対象<br>Desktop FDM printer</div></div>
+      <div class="body two-col">
+        <figure class="specimen"><img src="assets/3d_printer_image.jpg" alt="TsuzuのBambu Lab P1SとAMS"><figcaption>今回の実機：Bambu Lab P1S + AMS</figcaption></figure>
+        <div>
+          <h3 style="font-size:clamp(25px,3vw,44px);">おすすめしたい理由</h3>
+          <div class="rule"></div>
+          <p>・箱から出して、かなり早く印刷できる<br>・小さな「こうしたい」をすぐ試せる<br>・生活の中の道具を、自分仕様にできる</p>
+          <div class="photo-slot" style="margin-top:22px; min-height:120px; background:#dfe8d5; border-color:var(--green);"><div><strong>印刷前の画面</strong><img class="workflow-shot" src="assets/gopher_prepare_3dprint_on_bambu.png" alt="Bambu StudioでPLA Pureをセットした印刷前画面"><span>AMSにPLA Pureをセットして印刷</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="green">
+      <div class="header"><div><span class="kicker">04 / 材料</span><h2>今回のフィラメント：<br>PLA Pure</h2></div><div class="right-note">素材を知ると、<br>使いどころが見えてくる。</div></div>
+      <div class="body two-col">
+        <div class="material"><h3>植物由来の樹脂<br><span style="color:var(--green)">PLA</span> を使う。</h3><p>扱いやすく、造形の練習に向いているフィラメント。今回は「型」という、小さくて形が大事なものに使いました。</p><div class="warning">食品に触れる用途では、素材だけでなく、ノズル・積層面・洗浄・保管まで確認が必要。今回は発表用の試作として扱います。</div></div>
+        <div class="note" style="background:#dfe8d5; transform:rotate(2deg);"><span class="label" style="color:var(--green)">specimen note</span><h3 style="margin-top:20px;">Pure のよさ</h3><p>色がきれい。<br>出力の様子が見やすい。<br>「素材を選ぶ」体験になる。</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="yellow">
+      <div class="header"><div><span class="kicker">05 / つくるもの</span><h2>Cookie を<br>2種類つくります。</h2></div><div class="right-note">食べるところまでが<br>今回の研究。</div></div>
+      <div class="body">
+        <div class="cookie-row">
+          <div><div class="cookie"><div class="cut">ACCEPT</div></div><div class="cookie-label">Accept Cookies</div></div>
+          <div><div class="cookie gopher"><div class="cut"></div></div><div class="cookie-label">Gopher Cookie</div></div>
+          <div class="note" style="max-width:360px; margin-left:auto; transform:rotate(2deg);"><h3>Gopher</h3><p>Go言語のGopher。<br>私のTwitterアイコンにもなっているやつです。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="blue">
+      <div class="header"><div><span class="eyebrow">06 / 型づくり</span><h2>イラストから、<br>立体へ。</h2></div><div class="right-note">デジタルの手順だけど、<br>やっていることは工作。</div></div>
+      <div class="steps">
+        <article class="step"><div class="num">01</div><h3>白黒で描く</h3><p>「抜く部分」と「残す部分」を決める。</p><img class="step-image" src="assets/gopher_illustration.png" alt="白黒のGopherイラスト"></article>
+        <article class="step"><div class="num">02</div><h3>InkscapeでSVGに</h3><p>線を、編集できる形にする。</p><img class="step-image" src="assets/goper_inkskape_paths.png" alt="Inkscapeでパス化した画面"></article>
+        <article class="step"><div class="num">03</div><h3>輪郭を整える</h3><p>穴、線、つながりをチェック。</p><img class="step-image" src="assets/gopher_outer_model.png" alt="Fusionで作ったGopher型の輪郭"></article>
+        <article class="step"><div class="num">04</div><h3>Fusionでモデル化</h3><p>押し出し、厚み、持ち手を足す。</p><img class="step-image" src="assets/gopher_face_model.png" alt="Fusionで作った顔パーツのモデル"></article>
+        <article class="step"><div class="num">05</div><h3>印刷！</h3><p>まずは小さく試してみる。</p><img class="step-image" src="assets/gopher_printed_3dmodels.jpg" alt="印刷したGopherの型"></article>
+      </div>
+      <div class="footer-note">型は「食べる道具」なので、設計の時点で洗いやすさも考える。</div>
+    </section>
+
+    <section class="slide" data-tone="green">
+      <div class="header"><div><span class="kicker">07 / Gopher型</span><h2>アイコンを、<br>クッキーに変換。</h2></div><div class="right-note">線画にすると、<br>型にしやすい。</div></div>
+      <div class="body two-col">
+        <div class="photo-slot" style="min-height:330px; background:#dfe8d5; border-color:var(--green);"><div><img src="assets/gopher_illustration.png" alt="Gopherの元イラスト" style="width:180px;height:210px;object-fit:contain;margin-bottom:12px;"><strong>元のイラスト</strong><span>この顔を型にしたい</span></div></div>
+        <div class="note" style="background:#f6e8b4; transform:rotate(-2deg);"><span class="label">design memo</span><h3 style="margin-top:20px;">線を減らすと、<br>表情が残る。</h3><p style="margin-top:14px;">細かいディテールは焼くと埋もれるので、特徴を残しながら大胆に単純化します。</p><div class="rule"></div><p class="small">観察：元画像 → 輪郭 → 型の「抜け」</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="blue">
+      <div class="header"><div><span class="eyebrow">08 / ステンシル</span><h2>文字なら、<br>Fusionだけでも作れる。</h2></div><div class="right-note">切り抜きの橋渡しだけ、<br>忘れずに。</div></div>
+      <div class="body two-col">
+        <div class="stencil-demo"><img src="assets/accept_stencil_fusion.png" alt="Fusionで作ったAcceptステンシル"><div class="cutline">文字を押し出す → 印刷</div></div>
+        <div class="stencil-list">
+          <div><b>1</b><p>Fusionで文字を入力</p></div>
+          <div><b>2</b><p>型にしたい高さまで押し出す</p></div>
+          <div><b>3</b><p>読める向き、持ち手を確認</p></div>
+          <div><b>4</b><p><strong>印刷！</strong>　文字はすぐ形になる</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="yellow">
+      <div class="header"><div><span class="kicker">09 / 実験開始</span><h2>クッキー制作、<br>開始。</h2></div><div class="right-note">データを作るだけでは、<br>まだ食べられない。</div></div>
+      <div class="recipe">
+        <div class="recipe-list">
+          <div class="recipe-item"><div class="bubble">01</div><div><strong>生地をつくる</strong><span>材料を混ぜて、冷やす。</span></div></div>
+          <div class="recipe-item"><div class="bubble">02</div><div><strong>型をとる</strong><span>押す。抜く。並べる。</span></div></div>
+          <div class="recipe-item"><div class="bubble">03</div><div><strong>焼く！</strong><span>オーブンの前で待つ。</span></div></div>
+        </div>
+        <div class="bake-sheet" aria-label="焼く前のクッキーの写真"><img src="assets/created_cut_materials.jpg" alt="型抜きした焼く前のGopher生地"><div class="tray-line"></div></div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="green">
+      <div class="header"><div><span class="kicker">10 / 結果</span><h2>できた。<br>ちゃんと Cookie。</h2></div><div class="right-note">押したら食べられる。<br>仮説、だいたい正しい。</div></div>
+      <div class="gallery">
+        <div class="shot"><div class="photo-slot"><img src="assets/baked_gophers.jpg" alt="焼き上がったGopherクッキー" style="width:100%;height:210px;object-fit:cover;object-position:center;"></div><div class="caption">Gopher Cookie：焼き上がり</div></div>
+        <div class="shot"><div class="photo-slot"><img src="assets/gopher_and_cut_materials.jpg" alt="Gopherの型と生地" style="width:100%;height:210px;object-fit:cover;object-position:center;"></div><div class="caption">型と生地：つながった</div></div>
+        <div class="shot"><div class="photo-slot"><img src="assets/accept_printed_model.jpg" alt="印刷したAcceptステンシル" style="width:100%;height:210px;object-fit:cover;object-position:center;"></div><div class="caption">Acceptステンシル：印刷完了</div></div>
+      </div>
+    </section>
+
+    <section class="slide" data-tone="blue">
+      <div class="header"><div><span class="eyebrow">11 / おまけ</span><h2>ココアパウダー、<br>入れすぎました。</h2></div><div class="right-note">失敗は、<br>自由研究の大事な結果。</div></div>
+      <div class="failure"><div class="failure-photo"><img src="assets/baked_gophers.jpg" alt="ココアパウダーを入れすぎたGopherクッキーを含む焼き上がり"></div><div class="failure-copy"><span class="scribble">観察結果：やばい</span><strong>Gopherくんが<br>闇落ちした。</strong><p>ココアの香りは良い。<br>でも、見た目は想定していなかった方向へ。</p></div></div>
+    </section>
+
+    <section class="slide" data-tone="yellow">
+      <div class="header"><div><span class="kicker">12 / 反省</span><h2>型の縁が広すぎて、<br>羽根ができた。</h2></div><div class="right-note">設計のミスは、<br>焼くとよく見える。</div></div>
+      <div class="reflection"><div class="measurement"><div class="cookie-edge"></div><div class="wing"></div><div class="measure-line"></div></div><div class="reflection-copy"><h3>次は、縁を細く。</h3><p>抜きやすさを優先して縁を広くしたら、焼いたときに「羽根」のような余白が生まれました。</p><p class="small" style="margin-top:22px;">反省：使いやすさと、できあがりの見た目は別々に検証する。</p></div></div>
+    </section>
+
+    <section class="slide" data-tone="green">
+      <div class="header"><div><span class="kicker">13 / まとめ</span><h2>3Dプリンタは、<br>自由研究の道具になる。</h2></div><div class="right-note">つくる → 試す → 直す。<br>この反復がたのしい。</div></div>
+      <div class="summary">
+        <ul><li>欲しいものを、自分のサイズ・形で作れる</li><li>デジタルのデータが、手で使える道具になる</li><li>失敗しても、次の印刷で直せる</li></ul>
+        <div class="cta">みんなも3Dプリンタを買おう！</div>
+      </div>
+      <div class="footer-note">Thank you / Tsuzu · ex-MIS.W 53代 · @tsuzu · @tsuzu_misw</div>
+    </section>
+
+    <section class="slide cover" data-tone="tomato">
+      <div class="copy"><span class="stamp">おしまい / 質問歓迎</span><h1 style="margin-top:28px;">ご清聴<br><span style="color:var(--blue)">ありがとうございました。</span></h1><p class="sub">次は、何を型にしようかな。</p></div>
+      <div class="cover-art" aria-hidden="true"><div class="sun" style="border-color:var(--blue)"></div><div class="cookie-orbit" style="background:#9c704e"></div><div class="printer" style="background:#dce8d5"><span class="printer-tag" style="background:var(--blue)">PRINT!</span></div></div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="スライド操作">
+    <button type="button" id="prev" aria-label="前のスライド">←</button>
+    <div class="counter" id="counter">01 / 15</div>
+    <button type="button" id="next" aria-label="次のスライド">→</button>
+  </nav>
+  <div class="progress" id="progress"></div>
+
+  <script>
+    (() => {
+      const slides = [...document.querySelectorAll('.slide')];
+      const counter = document.getElementById('counter');
+      const progress = document.getElementById('progress');
+      let current = 0;
+      const show = (index) => {
+        current = (index + slides.length) % slides.length;
+        slides.forEach((slide, i) => slide.classList.toggle('active', i === current));
+        counter.textContent = `${String(current + 1).padStart(2, '0')} / ${String(slides.length).padStart(2, '0')}`;
+        progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+        history.replaceState(null, '', `#${current + 1}`);
+      };
+      document.getElementById('prev').addEventListener('click', () => show(current - 1));
+      document.getElementById('next').addEventListener('click', () => show(current + 1));
+      document.addEventListener('keydown', (event) => {
+        if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(event.key)) { event.preventDefault(); show(current + 1); }
+        if (['ArrowLeft', 'PageUp', 'Backspace'].includes(event.key)) { event.preventDefault(); show(current - 1); }
+        if (event.key === 'Home') show(0);
+        if (event.key === 'End') show(slides.length - 1);
+      });
+      const requested = Number(location.hash.slice(1));
+      show(Number.isInteger(requested) && requested > 0 ? requested - 1 : 0);
+    })();
+  </script>
+</body>
+</html>
